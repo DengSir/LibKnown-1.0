@@ -3,7 +3,7 @@
 -- @Link   : https://dengsir.github.io
 -- @Date   : 6/30/2024, 4:44:30 PM
 --
-local MAJOR, MINOR = 'LibKnown-1.0', 1
+local MAJOR, MINOR = 'LibKnown-1.0', 2
 
 ---@class LibKnown-1.0
 local Lib, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
@@ -11,21 +11,58 @@ if not Lib then
     return
 end
 
-local C = LibStub('C_Everywhere')
 local GARRISON_ICONS = {[1001489] = true, [1001490] = true, [1001491] = true}
+local ITEM_SPELL_KNOWN = ITEM_SPELL_KNOWN
+
+local GetItemInfoInstant = GetItemInfoInstant or C_Item.GetItemInfoInstant
+local GetToyInfo = C_ToyBox and C_ToyBox.GetToyInfo
+local IsItemHeirloom = C_Heirloom and C_Heirloom.IsItemHeirloom
+local PlayerHasHeirloom = C_Heirloom and C_Heirloom.PlayerHasHeirloom
 
 local function HasHeirloom(id)
-    return C.Heirloom and C.Heirloom.IsItemHeirloom(id) and C.Heirloom.PlayerHasHeirloom(id)
+    return IsItemHeirloom(id) and PlayerHasHeirloom(id)
 end
 
-local function IsKnown(id)
-    local tipData = C.TooltipInfo.GetItemByID(id)
+local IsKnown
+if C_TooltipInfo then
+    function IsKnown(id)
+        local tipData = C_TooltipInfo.GetItemByID(id)
 
-    for i, lineData in ipairs(tipData.lines) do
-        local text = lineData.leftText
-        if text and text == ITEM_SPELL_KNOWN then
-            return true
+        for _, lineData in ipairs(tipData.lines) do
+            local text = lineData.leftText
+            if text and text == ITEM_SPELL_KNOWN then
+                return true
+            end
         end
+    end
+else
+    local Tooltip
+    function IsKnown(id)
+        if not Tooltip then
+            if not LibKnownTooltip then
+                LibKnownTooltip = CreateFrame('GameTooltip', 'LibKnownTooltip', UIParent, 'GameTooltipTemplate')
+                LibKnownTooltip.Left = setmetatable({}, {
+                    __index = function(t, i)
+                        local font = _G['LibKnownTooltipTextLeft' .. i]
+                        t[i] = font
+                        return font
+                    end,
+                })
+            end
+            Tooltip = LibKnownTooltip
+        end
+
+        Tooltip:SetOwner(UIParent, 'ANCHOR_NONE')
+        Tooltip:SetItemByID(id)
+
+        for i = 1, Tooltip:NumLines() do
+            local text = Tooltip.Left[i]:GetText()
+            if text and text == ITEM_SPELL_KNOWN then
+                Tooltip:Hide()
+                return true
+            end
+        end
+        Tooltip:Hide()
     end
 end
 
@@ -42,10 +79,10 @@ function Lib:IsKnownable(id)
     if not id then
         return false
     end
-    if C.Heirloom and C.Heirloom.IsItemHeirloom(id) then
+    if IsItemHeirloom and IsItemHeirloom(id) then
         return true
     end
-    if C.ToyBox and select(2, C.ToyBox.GetToyInfo(id)) then
+    if GetToyInfo and select(2, GetToyInfo(id)) then
         return true
     end
     local _, _, _, _, icon, classId, subClassId = GetItemInfoInstant(id)
