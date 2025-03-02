@@ -96,6 +96,9 @@ function Lib:IsKnownable(id)
         if subClassId == Enum.ItemMiscellaneousSubclass.Mount then
             return true
         end
+        if subClassId == Enum.ItemMiscellaneousSubclass.CompanionPet then
+            return true
+        end
     end
 end
 
